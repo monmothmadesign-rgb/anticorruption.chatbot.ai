@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Антикорупційний Помічник</title>
+    <!-- Підключення Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Стилізація скролбару для кращого вигляду */
+        #chat-window::-webkit-scrollbar {
+            width: 6px;
+        }
+        #chat-window::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 10px;
+        }
+        #chat-window::-webkit-scrollbar-thumb {
+            background: #888;
+            border-radius: 10px;
+        }
+        #chat-window::-webkit-scrollbar-thumb:hover {
+            background: #555;
+        }
+        /* Анімація для індикатора завантаження */
+        @keyframes bounce {
+            0%, 100% { transform: translateY(-25%); animation-timing-function: cubic-bezier(0.8, 0, 1, 1); }
+            50% { transform: translateY(0); animation-timing-function: cubic-bezier(0, 0, 0.2, 1); }
+        }
+        .bounce-dot {
+            animation: bounce 1s infinite;
+        }
+        .bounce-dot:nth-child(2) { animation-delay: -0.2s; }
+        .bounce-dot:nth-child(3) { animation-delay: -0.4s; }
+    </style>
+</head>
+<body class="bg-gray-100 font-sans antialiased">
+    <div class="flex flex-col h-screen max-w-3xl mx-auto bg-white shadow-lg rounded-lg overflow-hidden">
+        
+        <!-- Заголовок чату -->
+        <header class="bg-blue-600 text-white p-4 flex items-center space-x-3">
+            <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path></svg>
+            <div>
+                <h1 class="text-xl font-bold">Антикорупційний Помічник</h1>
+                <p class="text-sm opacity-90">Ваш гід у світі запобігання корупції</p>
+            </div>
+        </header>
+
+        <!-- Вікно чату -->
+        <main id="chat-window" class="flex-1 p-4 overflow-y-auto space-y-4 bg-gray-50">
+            <!-- Початкове повідомлення бота -->
+            <div class="flex justify-start">
+                <div class="bg-gray-200 text-gray-900 p-3 rounded-lg max-w-xs md:max-w-md">
+                    <p class="font-bold mb-1">Помічник</p>
+                    <p>Вітаю! Я ваш Антикорупційний Помічник. Я можу допомогти вам з питаннями щодо запобігання корупції, посилаючись на чинне законодавство України.</p>
+                    <p class="mt-2">Будь ласка, опишіть вашу проблему, і я спробую надати роз'яснення, шляхи вирішення та, за можливості, схожі приклади.</p>
+                </div>
+            </div>
+        </main>
+
+        <!-- Індикатор завантаження -->
+        <div id="loading-indicator" class="p-4 hidden flex items-center justify-center space-x-2">
+            <div class="bounce-dot w-3 h-3 bg-blue-500 rounded-full"></div>
+            <div class="bounce-dot w-3 h-3 bg-blue-500 rounded-full"></div>
+            <div class="bounce-dot w-3 h-3 bg-blue-500 rounded-full"></div>
+            <span class="text-gray-600">Аналізую ваш запит та шукаю інформацію...</span>
+        </div>
+
+        <!-- Поле вводу -->
+        <footer class="bg-white border-t border-gray-200 p-4">
+            <div class="flex space-x-3">
+                <input type="text" id="user-input" class="flex-1 border border-gray-300 rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Опишіть вашу проблему тут...">
+                <button id="send-button" class="bg-blue-600 text-white p-3 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"></path></svg>
+                </button>
+            </div>
+        </footer>
+    </div>
+
+    <script>
+        // DOM Елементи
+        const chatWindow = document.getElementById('chat-window');
+        const userInput = document.getElementById('user-input');
+        const sendButton = document.getElementById('send-button');
+        const loadingIndicator = document.getElementById('loading-indicator');
+
+        // Обробник відправки
+        sendButton.addEventListener('click', sendMessage);
+        userInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                sendMessage();
+            }
+        });
+
+        /**
+         * Головна функція для відправки повідомлення
+         */
+        async function sendMessage() {
+            const userQuery = userInput.value.trim();
+            if (userQuery === '') return;
+
+            // Додати повідомлення користувача до чату
+            addMessageToChat(userQuery, 'user');
+            userInput.value = '';
+            loadingIndicator.classList.remove('hidden');
+            sendButton.disabled = true;
+
+            try {
+                // Отримати відповідь від Gemini API
+                const botResponse = await getBotResponse(userQuery);
+                addMessageToChat(botResponse.text, 'bot', botResponse.sources);
+            } catch (error) {
+                console.error("Помилка API:", error);
+                addMessageToChat("Вибачте, сталася помилка. Не вдалося зв'язатися з базою знань. Спробуйте ще раз пізніше.", 'bot');
+            } finally {
+                loadingIndicator.classList.add('hidden');
+                sendButton.disabled = false;
+                userInput.focus();
+            }
+        }
+
+        /**
+         * Додає повідомлення до вікна чату
+         * @param {string} message - Текст повідомлення
+         * @param {'user' | 'bot'} sender - Відправник ('user' або 'bot')
+         * @param {Array} sources - Масив джерел (для повідомлень бота)
+         */
+        function addMessageToChat(message, sender, sources = []) {
+            const messageElement = document.createElement('div');
+            messageElement.classList.add('flex', sender === 'user' ? 'justify-end' : 'justify-start');
+            
+            let formattedMessage = message.replace(/\n/g, '<br>');
+
+            // Додавання джерел, якщо вони є
+            if (sources.length > 0) {
+                formattedMessage += `<br><br><hr class="my-2 border-gray-300"><p class="font-bold text-sm">Джерела:</p><ul class="list-disc list-inside text-sm">`;
+                sources.forEach(source => {
+                    formattedMessage += `<li><a href="${source.uri}" target="_blank" class="text-blue-600 hover:underline">${source.title || source.uri}</a></li>`;
+                });
+                formattedMessage += `</ul>`;
+            }
+
+            if (sender === 'user') {
+                messageElement.innerHTML = `
+                    <div class="bg-blue-600 text-white p-3 rounded-lg max-w-xs md:max-w-md">
+                        <p>${formattedMessage}</p>
+                    </div>
+                `;
+            } else {
+                messageElement.innerHTML = `
+                    <div class="bg-gray-200 text-gray-900 p-3 rounded-lg max-w-xs md:max-w-md">
+                        <p class="font-bold mb-1">Помічник</p>
+                        <div class="whitespace-pre-wrap">${formattedMessage}</div>
+                    </div>
+                `;
+            }
+
+            chatWindow.appendChild(messageElement);
+            chatWindow.scrollTop = chatWindow.scrollHeight; // Автопрокрутка вниз
+        }
+
+        /**
+         * Отримує відповідь від Gemini API
+         * @param {string} userQuery - Запит користувача
+         * @returns {Promise<{text: string, sources: Array}>} - Об'єкт з текстом відповіді та джерелами
+         */
+        async function getBotResponse(userQuery) {
+            // Ключ API залишаємо пустим, він буде наданий середовищем Canvas
+            const apiKey = "AIzaSyALtcoHO2KRo0Ga_jLehlPBSpaVIdU9o7c"; 
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
+
+            // СИСТЕМНА ІНСТРУКЦІЯ для бота, що включає надані документи
+            // Це "мозок" нашого чат-бота, який визначає його поведінку
+            const systemPrompt = `
+Ти - "Антикорупційний Помічник", експерт з українського антикорупційного законодавства.
+Твоя мета - допомагати громадянам України розуміти та вирішувати питання, пов'язані з корупцією.
+
+**ТВОЇ ОБОВ'ЯЗКОВІ ПРАВИЛА:**
+1.  **База Знань:** Ти ПОВИНЕН базувати свої відповіді в першу чергу на наданому нижче контексті (ключові статті з Конституції України, Закону України "Про запобігання корупції" та Закону "Про засади державної антикорупційної політики").
+2.  **Пошук:** Ти ПОВИНЕН використовувати інструмент Google Search (`tools: [{"google_search": {} }]`) для пошуку АКТУАЛЬНИХ І КОНКРЕТНИХ статей законів на сайті \`zakon.rada.gov.ua\` та для пошуку прикладів судових справ або новин.
+3.  **Мова:** Завжди відповідай українською мовою.
+4.  **Структура Відповіді:** Твоя відповідь користувачу повинна мати чітку структуру:
+    * **Частина 1: Аналіз Проблеми та Законодавство:** Дай пряму відповідь на проблему. Чітко вкажи, які норми (статті, пункти) були порушені, посилаючись на контекст та результати пошуку.
+    * **Частина 2: Шляхи Вирішення:** Запропонуй конкретні кроки, які людина може зробити (наприклад, куди звернутися, як зафіксувати порушення, хто є уповноваженим органом - НАЗК, НАБУ, Поліція тощо).
+    * **Частина 3: Приклади (за можливості):** Якщо вдалося знайти через пошук, наведи 1-2 приклади схожих ситуацій або справ та їх вирішення.
+5.  **Цитування:** Завжди вказуй джерела, які ти знайшов за допомогою пошуку (вони будуть у `groundingMetadata`).
+
+---
+**КЛЮЧОВИЙ КОНТЕКСТ (НАДАНІ ФАЙЛИ):**
+
+**1. З Закону України "Про запобігання корупції" (Документ без назви):**
+
+* **Стаття 1. Визначення термінів:**
+    * **корупція:** використання особою... наданих їй службових повноважень... з метою одержання неправомірної вигоди...
+    * **неправомірна вигода:** грошові кошти або інше майно, переваги, пільги, послуги... які обіцяють, пропонують, надають або одержують без законних на те підстав;
+    * **потенційний конфлікт інтересів:** наявність у особи приватного інтересу у сфері, в якій вона виконує свої службові... повноваження, що може вплинути на об’єктивність...
+    * **реальний конфлікт інтересів:** суперечність між приватним інтересом особи та її службовими... повноваженнями, що впливає на об’єктивність...
+    * **подарунок:** грошові кошти або інше майно... які надають/одержують безоплатно або за ціною, нижчою мінімальної ринкової;
+    * **викривач:** фізична особа, яка... повідомила про можливі факти корупційних... правопорушень...
+
+* **Стаття 23. Обмеження щодо одержання подарунків:**
+    * Особам (уповноваженим на виконання функцій держави/місцевого самоврядування) забороняється вимагати, просити, одержувати подарунки... у зв’язку із здійсненням такими особами діяльності...
+    * Можна приймати подарунки, які відповідають уявленням про гостинність, якщо вартість одноразово не перевищує 2 прожиткових мінімумів (ПМ) для працездатних осіб, а сукупна вартість від однієї особи за рік - 4 ПМ.
+    * Обмеження не поширюється на подарунки від близьких осіб.
+
+* **Стаття 28. Запобігання та врегулювання конфлікту інтересів:**
+    * Особи зобов’язані: 1) вживати заходів щодо недопущення виникнення... конфлікту інтересів; 2) повідомляти не пізніше наступного робочого дня... про наявність... конфлікту інтересів; 3) не вчиняти дій... в умовах реального конфлікту інтересів; 4) вжити заходів щодо врегулювання...
+
+* **Стаття 53. Державний захист викривачів:**
+    * Викривачі, їх близькі особи перебувають під захистом держави.
+    * Викривач має право на безоплатну правничу допомогу, на конфіденційність, на винагороду (у визначених випадках).
+
+* **Стаття 65-1. Відповідальність:**
+    * За вчинення корупційних... правопорушень... особи притягаються до кримінальної, адміністративної, цивільно-правової та дисциплінарної відповідальності...
+
+**2. З Конституції України:**
+
+* **Стаття 19:** Органи державної влади... зобов'язані діяти лише на підставі, в межах повноважень та у спосіб, що передбачені Конституцією та законами України.
+* **Стаття 40:** Усі мають право направляти індивідуальні чи колективні письмові звернення або особисто звертатися до органів державної влади, органів місцевого самоврядування...
+* **Стаття 55:** Права і свободи людини і громадянина захищаються судом. Кожному гарантується право на оскарження в суді рішень, дій чи бездіяльності органів державної влади...
+* **Стаття 68:** Кожен зобов'язаний неухильно додержуватися Конституції України та законів України...
+
+**3. З Закону "Про засади державної антикорупційної політики на 2021-2025 роки":**
+* **Мета:** досягнення суттєвого прогресу в запобіганні та протидії корупції...
+* **Принципи:** оптимізація функцій держави, цифрова трансформація, створення зручних законних способів задоволення потреб, забезпечення невідворотності відповідальності, формування суспільної нетерпимості до корупції.
+---
+КІНЕЦЬ КОНТЕКСТУ.
+Тепер чекай на запит користувача.
+            `;
+            
+            // Ми додаємо "site:zakon.rada.gov.ua" до запиту, щоб допомогти пошуку знайти релевантні закони,
+            // але також дозволяємо загальний пошук для прикладів справ.
+            const queryForApi = `${userQuery} (site:zakon.rada.gov.ua OR site:nazk.gov.ua OR site:nabu.gov.ua) АБО приклади справ щодо "${userQuery}" в Україні`;
+
+            const payload = {
+                contents: [{
+                    parts: [{ text: queryForApi }]
+                }],
+                tools: [{
+                    "google_search": {}
+                }],
+                systemInstruction: {
+                    parts: [{ text: systemPrompt }]
+                },
+            };
+
+            // Функція для експоненційної затримки (для уникнення 429 помилок)
+            const fetchWithBackoff = async (url, options, retries = 3, delay = 1000) => {
+                try {
+                    const response = await fetch(url, options);
+                    if (response.status === 429 && retries > 0) {
+                        // console.warn(`Throttled (429). Retrying in ${delay}ms...`);
+                        await new Promise(resolve => setTimeout(resolve, delay));
+                        return fetchWithBackoff(url, options, retries - 1, delay * 2);
+                    }
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+                    return response.json();
+                } catch (error) {
+                    if (retries > 0) {
+                        // console.warn(`Fetch error. Retrying in ${delay}ms...`, error.message);
+                        await new Promise(resolve => setTimeout(resolve, delay));
+                        return fetchWithBackoff(url, options, retries - 1, delay * 2);
+                    }
+                    throw error;
+                }
+            };
+
+            const result = await fetchWithBackoff(apiUrl, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(payload)
+            });
+
+            // Обробка відповіді
+            const candidate = result.candidates?.[0];
+            let text = "Не вдалося згенерувати відповідь. Спробуйте переформулювати запит.";
+            let sources = [];
+
+            if (candidate && candidate.content?.parts?.[0]?.text) {
+                text = candidate.content.parts[0].text;
+
+                // Видобуваємо джерела з groundingMetadata
+                const groundingMetadata = candidate.groundingMetadata;
+                if (groundingMetadata && groundingMetadata.groundingAttributions) {
+                    sources = groundingMetadata.groundingAttributions
+                        .map(attribution => ({
+                            uri: attribution.web?.uri,
+                            title: attribution.web?.title,
+                        }))
+                        .filter(source => source.uri && source.title); // Фільтруємо валідні джерела
+                }
+            } else {
+                 console.warn("Неочікувана структура відповіді:", JSON.stringify(result, null, 2));
+                 if (result.promptFeedback?.blockReason) {
+                    text = `Ваш запит було заблоковано з причини: ${result.promptFeedback.blockReason}. Спробуйте переформулювати його.`;
+                 }
+            }
+
+            return { text, sources };
+        }
+
+    </script>
+</body>
+</html>
